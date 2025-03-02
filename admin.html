@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>謙發卡 - 後台</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 10px;
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background 0.3s, color 0.3s;
+        }
+        body.light { background: #f2f2f7; color: #000; }
+        body.dark { background: #1c2526; color: #fff; }
+        .container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 350px;
+            margin: 20px auto;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        body.dark .container { background: rgba(44, 54, 57, 0.9); }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        h1 { font-size: 24px; font-weight: 600; margin: 0; }
+        .theme-toggle { background: none; color: inherit; font-size: 20px; cursor: pointer; }
+        input[type="text"] {
+            padding: 12px;
+            width: 100%;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background: rgba(0,0,0,0.05);
+        }
+        body.dark input[type="text"] { background: rgba(255,255,255,0.1); color: #fff; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 12px;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        body.dark th, body.dark td { border-color: rgba(255,255,255,0.1); }
+        th { background: #007aff; color: white; }
+        td { background: rgba(255,255,255,0.8); }
+        body.dark td { background: rgba(44,54,57,0.8); }
+        td:first-child { color: #ff9500; font-weight: bold; }
+        button {
+            padding: 6px 10px;
+            margin: 2px;
+            background: #ff3b30;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        button:hover { background: #d32f2f; }
+        .nav-btn { background: #34c759; width: 100%; padding: 12px; font-size: 16px; }
+        .nav-btn:hover { background: #28a745; }
+    </style>
+</head>
+<body class="light">
+    <div class="container">
+        <div class="header">
+            <h1>謙發卡</h1>
+            <i id="themeIcon" class="fas fa-sun theme-toggle" onclick="toggleTheme()"></i>
+        </div>
+        <input type="text" id="search" placeholder="搜索卡密" onkeyup="searchCards()">
+        <table id="card_table">
+            <tr>
+                <th>卡密</th>
+                <th>狀態</th>
+                <th>使用者</th>
+                <th>生成時間</th>
+                <th>剩餘時間</th>
+                <th>操作</th>
+            </tr>
+        </table>
+        <button class="nav-btn" onclick="window.location.href='generate_card.html'">生成卡密</button>
+    </div>
+
+    <script>
+        window.addEventListener('resize', function() {
+            if (window.innerWidth !== window.screen.width || window.innerHeight !== window.screen.height) {
+                document.body.style.zoom = 1;
+                window.scrollTo(0, 0);
+            }
+        });
+
+        document.body.className = localStorage.getItem('theme') || 'light';
+        updateThemeIcon();
+
+        function toggleTheme() {
+            const body = document.body;
+            const isLight = body.classList.contains('light');
+            body.className = isLight ? 'dark' : 'light';
+            localStorage.setItem('theme', isLight ? 'dark' : 'light');
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const icon = document.getElementById('themeIcon');
+            icon.className = localStorage.getItem('theme') === 'dark' ? 'fas fa-moon theme-toggle' : 'fas fa-sun theme-toggle';
+        }
+
+        window.onload = function() {
+            const cards = JSON.parse(localStorage.getItem('cards')) || {};
+            const table = document.getElementById('card_table');
+
+            for (let card in cards) {
+                const row = document.createElement('tr');
+                const statusColor = cards[card].bound ? '#34c759' : '#8e8e93';
+                const remaining = cards[card].expires_at === Infinity ? '永久' : formatRemainingTime(cards[card].expires_at - Date.now());
+                row.innerHTML = `
+                    <td>${card}</td>
+                    <td style="color: ${statusColor}">${cards[card].bound ? '已綁定' : '未綁定'}</td>
+                    <td>${cards[card].user || '無'}</td>
+                    <td>${cards[card].created_at}</td>
+                    <td>${remaining}</td>
+                    <td>
+                        <button onclick="unbindCard('${card}')">解綁</button>
+                        <button onclick="deleteCard('${card}')">刪除</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            }
+        };
+
+        function unbindCard(card) {
+            const cards = JSON.parse(localStorage.getItem('cards')) || {};
+            if (cards[card]) {
+                cards[card].bound = false;
+                cards[card].user = '';
+                localStorage.setItem('cards', JSON.stringify(cards));
+                location.reload();
+            }
+        }
+
+        function deleteCard(card) {
+            const cards = JSON.parse(localStorage.getItem('cards')) || {};
+            if (cards[card]) {
+                delete cards[card];
+                localStorage.setItem('cards', JSON.stringify(cards));
+                location.reload();
+            }
+        }
+
+        function searchCards() {
+            const search = document.getElementById('search').value.toUpperCase();
+            const table = document.getElementById('card_table');
+            const rows = table.getElementsByTagName('tr');
+            for (let i = 1; i < rows.length; i++) {
+                const card = rows[i].getElementsByTagName('td')[0].innerText;
+                rows[i].style.display = card.includes(search) ? '' : 'none';
+            }
+        }
+
+        function formatRemainingTime(ms) {
+            if (ms <= 0) return '已過期';
+            const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            return `${days}天${hours}小時`;
+        }
+
+        // Service Worker 註冊
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(() => {
+                console.log('Service Worker 註冊成功');
+            }).catch(err => console.log('Service Worker 註冊失敗:', err));
+        }
+    </script>
+    <!-- 內嵌 Manifest -->
+    <script type="application/json" id="manifest">
+        {
+            "name": "謙發卡 - 管理端",
+            "short_name": "謙發卡",
+            "start_url": "admin.html",
+            "display": "standalone",
+            "background_color": "#f2f2f7",
+            "theme_color": "#007aff",
+            "icons": [
+                {
+                    "src": "https://via.placeholder.com/192.png?text=謙",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        }
+    </script>
+    <script>
+        const manifest = document.getElementById('manifest').innerHTML;
+        const blob = new Blob([manifest], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = url;
+        document.head.appendChild(link);
+    </script>
+</body>
+</html>
