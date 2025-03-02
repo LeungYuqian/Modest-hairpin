@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>謙發卡 - 用戶頁面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f2f2f7;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .modal, .success-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #2c2c2e;
+            padding: 20px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+            color: #fff;
+        }
+        .success-modal-content {
+            background: #2c2c2e;
+            padding: 20px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 250px;
+            text-align: center;
+            color: #fff;
+            opacity: 1;
+            transition: opacity 0.5s;
+        }
+        h2 { color: #fff; font-size: 20px; margin-bottom: 15px; font-weight: 600; }
+        input {
+            padding: 12px;
+            width: 100%;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        button {
+            padding: 12px;
+            margin: 5px 0;
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 48%;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        button:hover { background: #005bb5; }
+        #pasteBtn { background: #ff9500; }
+        #pasteBtn:hover { background: #e68a00; }
+        .hint { color: #d4d4d8; font-size: 12px; margin: 10px 0; }
+        .error { color: #ff453a; margin-top: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="modal" id="cardModal">
+        <div class="modal-content">
+            <h2>輸入卡密</h2>
+            <input type="text" id="card_input" placeholder="請輸入卡密">
+            <p class="hint">卡密為16位字母數字組合</p>
+            <button id="pasteBtn" onclick="pasteCard()">貼上</button>
+            <button onclick="checkCard()">確定</button>
+            <p id="error" class="error"></p>
+        </div>
+    </div>
+
+    <div class="success-modal" id="successModal" style="display: none;">
+        <div class="success-modal-content">
+            <p id="successMessage"></p>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('resize', function() {
+            if (window.innerWidth !== window.screen.width || window.innerHeight !== window.screen.height) {
+                document.body.style.zoom = 1;
+                window.scrollTo(0, 0);
+            }
+        });
+
+        window.onload = function() {
+            const verifiedCard = localStorage.getItem('verified_card');
+            console.log('Verified card from localStorage:', verifiedCard); // 診斷日誌
+            console.log('All cards:', JSON.parse(localStorage.getItem('cards'))); // 診斷日誌
+            if (verifiedCard && checkCardValidity(verifiedCard)) {
+                document.getElementById('cardModal').style.display = 'none';
+            } else {
+                showCardModal();
+            }
+        };
+
+        function checkCardValidity(card) {
+            const cards = JSON.parse(localStorage.getItem('cards')) || {};
+            const now = Date.now();
+            const valid = cards[card] && !cards[card].bound && now < cards[card].expires_at;
+            console.log('Checking card:', card);
+            console.log('Exists:', !!cards[card]);
+            console.log('Bound:', cards[card]?.bound);
+            console.log('Expires At:', cards[card]?.expires_at);
+            console.log('Now:', now);
+            console.log('Valid:', valid);
+            return valid;
+        }
+
+        function showCardModal() {
+            document.getElementById('cardModal').style.display = 'flex';
+            document.getElementById('error').innerText = '';
+        }
+
+        function pasteCard() {
+            navigator.clipboard.readText().then(text => {
+                document.getElementById('card_input').value = text;
+            });
+        }
+
+        function checkCard() {
+            const inputCard = document.getElementById('card_input').value;
+            const cards = JSON.parse(localStorage.getItem('cards')) || {};
+
+            if (checkCardValidity(inputCard)) {
+                const user = prompt('請輸入您的名稱');
+                cards[inputCard].bound = true;
+                cards[inputCard].user = user || '未知用戶';
+                localStorage.setItem('cards', JSON.stringify(cards));
+                localStorage.setItem('verified_card', inputCard);
+                document.getElementById('cardModal').style.display = 'none';
+                showSuccessModal(inputCard);
+            } else {
+                document.getElementById('error').innerText = '卡密無效、已綁定或已過期！';
+            }
+        }
+
+        function showSuccessModal(card) {
+            const cards = JSON.parse(localStorage.getItem('cards')) || {};
+            const expiresAt = cards[card].expires_at;
+            const remaining = expiresAt === Infinity ? '永久' : formatRemainingTime(expiresAt - Date.now());
+            const message = `卡密正確\n到期時間: ${remaining}`;
+            document.getElementById('successMessage').innerText = message;
+            const successModal = document.getElementById('successModal');
+            successModal.style.display = 'flex';
+            setTimeout(() => {
+                successModal.style.opacity = '0';
+                setTimeout(() => {
+                    successModal.style.display = 'none';
+                    successModal.style.opacity = '1';
+                }, 500);
+            }, 1500);
+        }
+
+        function formatRemainingTime(ms) {
+            if (ms <= 0) return '已過期';
+            const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            return `${days}天${hours}小時`;
+        }
+
+        // Service Worker 註冊
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/<repository>/sw.js').then(() => {
+                console.log('Service Worker 註冊成功');
+            }).catch(err => console.log('Service Worker 註冊失敗:', err));
+        }
+    </script>
+    <!-- 內嵌 Manifest -->
+    <script type="application/json" id="manifest">
+        {
+            "name": "謙發卡 - 用戶端",
+            "short_name": "謙發卡",
+            "start_url": "login.html",
+            "display": "standalone",
+            "background_color": "#f2f2f7",
+            "theme_color": "#007aff",
+            "icons": [
+                {
+                    "src": "https://via.placeholder.com/192.png?text=謙",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        }
+    </script>
+    <script>
+        const manifest = document.getElementById('manifest').innerHTML;
+        const blob = new Blob([manifest], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = url;
+        document.head.appendChild(link);
+    </script>
+</body>
+</html>

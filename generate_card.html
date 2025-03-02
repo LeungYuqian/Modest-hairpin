@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>謙發卡 - 生成卡密</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 10px;
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background 0.3s, color 0.3s;
+        }
+        body.light { background: #f2f2f7; color: #000; }
+        body.dark { background: #1c2526; color: #fff; }
+        .container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 350px;
+            margin: 20px auto;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        body.dark .container { background: rgba(44, 54, 57, 0.9); }
+        h1 { font-size: 24px; margin-bottom: 15px; font-weight: 600; }
+        input, textarea, select {
+            padding: 12px;
+            width: 100%;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background: rgba(0,0,0,0.05);
+        }
+        body.dark input, body.dark textarea, body.dark select { background: rgba(255,255,255,0.1); color: #fff; }
+        textarea { color: #ff9500; font-weight: bold; resize: none; }
+        button {
+            padding: 12px;
+            margin: 5px 0;
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        button:hover { background: #005bb5; }
+        .nav-btn { background: #34c759; }
+        .nav-btn:hover { background: #28a745; }
+    </style>
+</head>
+<body class="light">
+    <div class="container">
+        <h1>生成卡密</h1>
+        <input type="number" id="card_count" min="1" value="1" placeholder="生成數量">
+        <select id="expire_time">
+            <option value="86400000">1天</option>
+            <option value="604800000">1周</option>
+            <option value="2592000000">1個月</option>
+            <option value="31536000000">1年</option>
+            <option value="0">永久</option>
+        </select>
+        <textarea id="card_code" readonly placeholder="點擊生成卡密" rows="4"></textarea>
+        <button onclick="generateMultipleCards()">批量生成</button>
+        <button onclick="copyCard()">複製卡密</button>
+        <button class="nav-btn" onclick="window.location.href='admin.html'">返回後台</button>
+    </div>
+
+    <script>
+        window.addEventListener('resize', function() {
+            if (window.innerWidth !== window.screen.width || window.innerHeight !== window.screen.height) {
+                document.body.style.zoom = 1;
+                window.scrollTo(0, 0);
+            }
+        });
+
+        document.body.className = localStorage.getItem('theme') || 'light';
+
+        function generateCode() {
+            let code = '';
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            for (let i = 0; i < 16; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+            return code;
+        }
+
+        function generateMultipleCards() {
+            const count = document.getElementById('card_count').value;
+            const expire = document.getElementById('expire_time').value;
+            let cards = JSON.parse(localStorage.getItem('cards')) || {};
+            let output = '';
+            for (let i = 0; i < count; i++) {
+                let code = generateCode();
+                cards[code] = { 
+                    bound: false, 
+                    created_at: new Date().toLocaleString(), 
+                    expires_at: expire == 0 ? Infinity : Date.now() + parseInt(expire),
+                    user: ''
+                };
+                output += code + '\n';
+            }
+            document.getElementById('card_code').value = output.trim();
+            localStorage.setItem('cards', JSON.stringify(cards));
+            console.log('Generated cards:', cards); // 添加診斷日誌
+        }
+
+        function copyCard() {
+            const card = document.getElementById('card_code').value;
+            if (card) {
+                navigator.clipboard.writeText(card).then(() => {
+                    const btn = event.target;
+                    btn.style.background = '#34c759';
+                    setTimeout(() => btn.style.background = '#007aff', 1000);
+                    alert('卡密已複製到剪貼板！');
+                });
+            } else {
+                alert('請先生成卡密！');
+            }
+        }
+    </script>
+</body>
+</html>
